@@ -1925,6 +1925,96 @@ a {
 }
 
 /* ── Responsive Enhancements ── */
+.btn-menu-mobile {
+  display: none;
+}
+
+/* ── Drawer & Overlay ── */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  backdrop-filter: blur(4px);
+  display: flex;
+}
+
+.drawer-content {
+  width: 300px;
+  height: 100%;
+  background: var(--bg-surface);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: slideInLeft .3s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-header {
+  padding: 30px 20px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  position: relative;
+}
+
+.drawer-header .icon-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+}
+
+.drawer-user-info h3 {
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+
+.drawer-body {
+  padding: 10px;
+  flex: 1;
+}
+
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background .2s;
+  font-weight: 500;
+}
+
+.drawer-item:hover {
+  background: var(--bg-hover);
+}
+
+.drawer-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 10px 16px;
+}
+
+.drawer-footer {
+  padding: 20px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+
 .btn-logout-mobile {
   display: none;
 }
@@ -1934,10 +2024,12 @@ a {
 }
 
 @media (max-width: 900px) {
-  .btn-logout-mobile {
+  .btn-menu-mobile {
     display: flex;
-    background: var(--red-soft);
-    color: var(--red);
+  }
+
+  .btn-logout-mobile {
+    display: none;
   }
 
   .sidebar-left,

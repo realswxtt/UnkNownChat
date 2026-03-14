@@ -20,6 +20,7 @@ export default function ChatPage() {
     const [showEditProfile, setShowEditProfile] = useState(false)
     const [showViewProfile, setShowViewProfile] = useState(false)
     const [showMenu, setShowMenu] = useState(false)
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [activeTab, setActiveTab] = useState('chat')
     const endRef = useRef(null)
     const inputRef = useRef(null)
@@ -145,6 +146,9 @@ export default function ChatPage() {
             {/* ── TOP NAVBAR ── */}
             <nav className="topnav">
                 <div className="topnav-left">
+                    <button className="icon-btn btn-menu-mobile" onClick={() => setIsMenuOpen(true)}>
+                        <Icon name="menu" size={24} />
+                    </button>
                     <div className="topnav-brand">
                         <div className="brand-shield">
                             <img src="/logo.png" alt="" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
@@ -153,23 +157,20 @@ export default function ChatPage() {
                     </div>
                 </div>
                 <div className="topnav-center">
-                    <button className={`nav-tab ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')} title="Inicio">
+                    <button className={`nav-tab ${activeTab === 'home' ? 'active' : ''}`} onClick={() => { setActiveTab('home'); setReceiverId(null); }} title="Inicio">
                         <Icon name="home" size={22} />
                     </button>
-                    <button className={`nav-tab ${activeTab === 'people' ? 'active' : ''}`} onClick={() => setActiveTab('people')} title="Personas">
+                    <button className={`nav-tab ${activeTab === 'people' ? 'active' : ''}`} onClick={() => { setActiveTab('people'); setReceiverId(null); }} title="Personas">
                         <Icon name="people" size={22} />
                     </button>
                     <button className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')} title="Chat">
                         <Icon name="chat" size={22} />
                     </button>
-                    <button className={`nav-tab ${activeTab === 'notif' ? 'active' : ''}`} onClick={() => setActiveTab('notif')} title="Notificaciones">
+                    <button className={`nav-tab ${activeTab === 'notif' ? 'active' : ''}`} onClick={() => { setActiveTab('notif'); setReceiverId(null); }} title="Notificaciones">
                         <Icon name="bell" size={22} />
                     </button>
                 </div>
                 <div className="topnav-right">
-                    <button className="icon-btn btn-logout-mobile" onClick={handleSignOut} title="Cerrar sesión">
-                        <Icon name="logout" size={20} />
-                    </button>
                     <button className="icon-btn" onClick={() => setShowEditProfile(true)} title="Configuración">
                         <Icon name="settings" size={20} />
                     </button>
@@ -421,6 +422,42 @@ export default function ChatPage() {
                     ))}
                 </aside>
             </div>
+
+            {/* MOBILE DRAWER */}
+            {isMenuOpen && (
+                <div className="drawer-overlay" onClick={() => setIsMenuOpen(false)}>
+                    <div className="drawer-content fadeInRight" onClick={e => e.stopPropagation()}>
+                        <div className="drawer-header">
+                            <Avatar src={myProfile?.avatar_url} name={myProfile?.display_name} size={60} id={session?.user?.id} />
+                            <div className="drawer-user-info">
+                                <h3>{myProfile?.display_name || 'Nombre'}</h3>
+                                <span className="sub">ID: {myProfile?.short_id}</span>
+                            </div>
+                            <button className="icon-btn" onClick={() => setIsMenuOpen(false)}>
+                                <Icon name="x" size={20} />
+                            </button>
+                        </div>
+                        <div className="drawer-body">
+                            <div className="drawer-item" onClick={() => { setShowEditProfile(true); setIsMenuOpen(false); }}>
+                                <Icon name="settings" size={22} />
+                                <span>Configuración de Perfil</span>
+                            </div>
+                            <div className="drawer-item" onClick={() => { setActiveTab('home'); setIsMenuOpen(false); setReceiverId(null); }}>
+                                <Icon name="home" size={22} />
+                                <span>Ir al Inicio</span>
+                            </div>
+                            <div className="drawer-divider" />
+                            <div className="drawer-item text-red" onClick={handleSignOut}>
+                                <Icon name="logout" size={22} />
+                                <span>Cerrar sesión</span>
+                            </div>
+                        </div>
+                        <div className="drawer-footer">
+                            <p className="hint">Aethel v1.0.0 — Privacidad Total</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* MODALS */}
             {showEditProfile && (
