@@ -2039,10 +2039,15 @@ a {
 
   /* Show left sidebar ONLY when no chat is active on the chat tab */
   .fb-layout:has(.connect-body) .sidebar-left {
-    display: flex;
+    display: block;
     width: 100%;
     min-width: 100%;
     border-right: none;
+  }
+
+  /* Hide the redundant desktop logout button on mobile */
+  .sidebar-left .sb-danger {
+    display: none;
   }
 
   /* If a chat window is open, hide the sidebar and show back button */
