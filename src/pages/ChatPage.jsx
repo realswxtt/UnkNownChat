@@ -55,7 +55,7 @@ export default function ChatPage() {
     const { totalUnread, unreadPerChat } = useUnreadCount(session?.user?.id)
 
     // Messages
-    const { messages, sendMessage, deleteMessage, clearChat, uploadImage, sending, isTyping, sendTyping, markAsRead, reactMessage } = useMessages(session?.user?.id, receiverId)
+    const { messages, sendMessage, deleteMessage, clearChat, uploadImage, sending, isTyping, sendTyping, markAsRead, reactMessage } = useMessages(session?.user?.id, receiverId, activeSpace)
 
     // Mark as read when messages load and receiver is set
     useEffect(() => {
