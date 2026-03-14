@@ -18,18 +18,21 @@ export function useMessages(userId, receiverId) {
 
     // Realtime subscription
     useEffect(() => {
-        if (!userId) return
+        if (!userId || !receiverId) return
         const ch = supabase
-            .channel('rt-messages')
+            .channel(`rt-${userId}-${receiverId}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
                 const msg = payload.new
-                if (msg.sender_id === userId || msg.receiver_id === userId) {
+                if (
+                    (msg.sender_id === userId && msg.receiver_id === receiverId) ||
+                    (msg.sender_id === receiverId && msg.receiver_id === userId)
+                ) {
                     setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
                 }
             })
             .subscribe()
         return () => ch.unsubscribe()
-    }, [userId])
+    }, [userId, receiverId])
 
     // Send message
     const sendMessage = async (content, imageUrl = null) => {
