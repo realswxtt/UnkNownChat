@@ -1920,6 +1920,71 @@ a {
   animation: spin .7s linear infinite;
 }
 
+.pointer {
+  cursor: pointer;
+}
+
+/* ── Responsive Enhancements ── */
+.btn-logout-mobile {
+  display: none;
+}
+
+.btn-back-mobile {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .btn-logout-mobile {
+    display: flex;
+    background: var(--red-soft);
+    color: var(--red);
+  }
+
+  .sidebar-left,
+  .sidebar-right {
+    display: none;
+  }
+
+  /* Show left sidebar ONLY when no chat is active on the chat tab */
+  .fb-layout:has(.connect-body) .sidebar-left {
+    display: flex;
+    width: 100%;
+    min-width: 100%;
+    border-right: none;
+  }
+
+  /* If a chat window is open, hide the sidebar and show back button */
+  .fb-layout:has(.chat-window) .sidebar-left {
+    display: none;
+  }
+
+  .fb-layout:has(.chat-window) .btn-back-mobile {
+    display: flex;
+  }
+
+  .fb-layout:has(.chat-window) .content-main {
+    padding: 0;
+  }
+
+  .nav-tab {
+    width: 60px;
+  }
+
+  .topnav-brand span {
+    display: none;
+  }
+
+  .topnav-left {
+    flex: 0;
+  }
+
+  .home-view,
+  .people-view,
+  .notif-view {
+    padding: 10px;
+  }
+}
+
 @media (max-width: 768px) {
   .msg-action-del {
     right: 5px;

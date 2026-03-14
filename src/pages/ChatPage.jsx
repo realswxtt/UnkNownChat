@@ -49,6 +49,11 @@ export default function ChatPage() {
     const onFileChange = (e) => {
         const file = e.target.files[0]
         if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert('El archivo es demasiado grande. El límite es de 5MB.')
+                e.target.value = ''
+                return
+            }
             setImageFile(file)
             setImagePreview(URL.createObjectURL(file))
         }
@@ -162,6 +167,9 @@ export default function ChatPage() {
                     </button>
                 </div>
                 <div className="topnav-right">
+                    <button className="icon-btn btn-logout-mobile" onClick={handleSignOut} title="Cerrar sesión">
+                        <Icon name="logout" size={20} />
+                    </button>
                     <button className="icon-btn" onClick={() => setShowEditProfile(true)} title="Configuración">
                         <Icon name="settings" size={20} />
                     </button>
@@ -294,11 +302,16 @@ export default function ChatPage() {
                             {receiverId && (
                                 <div className="chat-window fadeIn">
                                     <div className="cw-header">
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }} onClick={() => setShowViewProfile(true)}>
-                                            <Avatar src={otherProfile?.avatar_url} name={otherProfile?.display_name} size={38} id={receiverId} online />
-                                            <div className="cw-header-info">
-                                                <span className="cw-name">{otherProfile?.display_name || 'Usuario'}</span>
-                                                <span className="cw-status">En línea</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                                            <button className="icon-btn btn-back-mobile" onClick={() => setReceiverId(null)}>
+                                                <Icon name="chevronLeft" size={24} />
+                                            </button>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }} onClick={() => setShowViewProfile(true)} className="pointer">
+                                                <Avatar src={otherProfile?.avatar_url} name={otherProfile?.display_name} size={38} id={receiverId} online />
+                                                <div className="cw-header-info">
+                                                    <span className="cw-name">{otherProfile?.display_name || 'Usuario'}</span>
+                                                    <span className="cw-status">En línea</span>
+                                                </div>
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
