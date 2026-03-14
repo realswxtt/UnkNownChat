@@ -37,12 +37,11 @@ export function useMessages(userId, receiverId) {
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
                 const msg = payload.new
-                if (
-                    (msg.sender_id === userId && msg.receiver_id === receiverId) ||
-                    (msg.sender_id === receiverId && msg.receiver_id === userId)
-                ) {
-                    setMessages((prev) => prev.map((m) => m.id === msg.id ? msg : m))
-                }
+                setMessages((prev) => {
+                    const exists = prev.find(m => m.id === msg.id)
+                    if (!exists) return prev
+                    return prev.map((m) => m.id === msg.id ? { ...m, ...msg } : m)
+                })
             })
             .on('broadcast', { event: 'typing' }, (payload) => {
                 if (payload.payload.userId === receiverId) {

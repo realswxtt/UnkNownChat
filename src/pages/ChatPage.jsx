@@ -689,6 +689,9 @@ function MessageItem({ m, mine, dl, showD, otherProfile, receiverId, session, fo
 
                     {mine && (
                         <div className="msg-actions">
+                            <button className="msg-action-btn" onClick={() => setShowReactions(!showReactions)} title="Reaccionar">
+                                <Icon name="smile" size={14} />
+                            </button>
                             <button className="msg-action-btn" onClick={() => onReply(m)} title="Responder">
                                 <Icon name="reply" size={14} />
                             </button>
@@ -699,6 +702,9 @@ function MessageItem({ m, mine, dl, showD, otherProfile, receiverId, session, fo
                     )}
                     {!mine && (
                         <div className="msg-actions">
+                            <button className="msg-action-btn" onClick={() => setShowReactions(!showReactions)} title="Reaccionar">
+                                <Icon name="smile" size={14} />
+                            </button>
                             <button className="msg-action-btn" onClick={() => onReply(m)} title="Responder">
                                 <Icon name="reply" size={14} />
                             </button>
