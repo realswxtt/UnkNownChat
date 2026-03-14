@@ -2329,6 +2329,38 @@ a {
   margin-top: 2px;
 }
 
+/* Unread Badges */
+.nav-tab {
+  position: relative;
+}
+
+.nav-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background-color: var(--red);
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg-surface);
+  animation: pulse 2s infinite;
+}
+
+.badge-side {
+  background-color: var(--primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: auto;
+  /* Push to right */
+}
+
 @media (max-width: 900px) {
   .btn-menu-mobile {
     display: flex;

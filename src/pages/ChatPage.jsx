@@ -10,6 +10,7 @@ import Icon from '../components/Icon'
 import ProfileModal from '../components/ProfileModal'
 import ViewProfileModal from '../components/ViewProfileModal'
 import { useContacts } from '../hooks/useContacts'
+import { useUnreadCount } from '../hooks/useUnreadCount'
 
 export default function ChatPage() {
     const { session, signOut } = useAuth()
@@ -44,6 +45,9 @@ export default function ChatPage() {
 
     // Contacts & Recent
     const { recentChats, savedContacts, saveContact, removeContact } = useContacts(session?.user?.id)
+
+    // Unread
+    const { totalUnread, unreadPerChat } = useUnreadCount(session?.user?.id)
 
     // Messages
     const { messages, sendMessage, deleteMessage, clearChat, uploadImage, sending, isTyping, sendTyping, markAsRead, reactMessage } = useMessages(session?.user?.id, receiverId)
@@ -253,6 +257,7 @@ export default function ChatPage() {
                     </button>
                     <button className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')} title="Chat">
                         <Icon name="chat" size={22} />
+                        {totalUnread > 0 && <span className="nav-badge">{totalUnread}</span>}
                     </button>
                     <button className={`nav-tab ${activeTab === 'notif' ? 'active' : ''}`} onClick={() => { setActiveTab('notif'); setReceiverId(null); }} title="Notificaciones">
                         <Icon name="bell" size={22} />
@@ -292,7 +297,7 @@ export default function ChatPage() {
                         </div>
 
                         {recentChats.map(id => (
-                            <ContactItem key={id} id={id} active={receiverId === id} onClick={() => { setReceiverId(id); setActiveTab('chat'); }} />
+                            <ContactItem key={id} id={id} active={receiverId === id} onClick={() => { setReceiverId(id); setActiveTab('chat'); }} unreadCount={unreadPerChat[id] || 0} />
                         ))}
                     </div>
 
@@ -523,7 +528,7 @@ export default function ChatPage() {
                     <h4 className="sb-title">Contactos Guardados</h4>
                     {savedContacts.length === 0 && <p className="sub text-sm" style={{ padding: '0 12px' }}>Aún no has guardado contactos.</p>}
                     {savedContacts.map(id => (
-                        <ContactItem key={id} id={id} active={receiverId === id} onClick={() => { setReceiverId(id); setActiveTab('chat'); }} />
+                        <ContactItem key={id} id={id} active={receiverId === id} onClick={() => { setReceiverId(id); setActiveTab('chat'); }} unreadCount={unreadPerChat[id] || 0} />
                     ))}
                 </aside>
             </div>
@@ -582,14 +587,18 @@ export default function ChatPage() {
     )
 }
 
-function ContactItem({ id, onClick, active }) {
+function ContactItem({ id, onClick, active, unreadCount }) {
     const { profile } = useProfile(id)
     return (
         <div className={`sb-item ${active ? 'active' : ''}`} onClick={onClick}>
             <Avatar src={profile?.avatar_url} name={profile?.display_name} size={34} id={id} />
             <div className="sb-item-info">
                 <span className="sb-name">{profile?.display_name || 'Usuario'}</span>
-                <span className="sb-status-dot online" />
+                {unreadCount > 0 ? (
+                    <span className="badge-side">{unreadCount}</span>
+                ) : (
+                    <span className="sb-status-dot online" />
+                )}
             </div>
         </div>
     )
