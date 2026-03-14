@@ -11,10 +11,12 @@ import ProfileModal from '../components/ProfileModal'
 import ViewProfileModal from '../components/ViewProfileModal'
 import { useContacts } from '../hooks/useContacts'
 import { useUnreadCount } from '../hooks/useUnreadCount'
+import { useSpaces } from '../hooks/useSpaces'
 
 export default function ChatPage() {
     const { session, signOut } = useAuth()
     const [receiverId, setReceiverId] = useState(null)
+    const [activeSpace, setActiveSpace] = useState(null)
     const [newMsg, setNewMsg] = useState('')
     const [imageFile, setImageFile] = useState(null)
     const [imagePreview, setImagePreview] = useState(null)
@@ -45,6 +47,9 @@ export default function ChatPage() {
 
     // Contacts & Recent
     const { recentChats, savedContacts, saveContact, removeContact } = useContacts(session?.user?.id)
+
+    // Spaces
+    const { spaces, createSpace, joinSpace } = useSpaces(session?.user?.id)
 
     // Unread
     const { totalUnread, unreadPerChat } = useUnreadCount(session?.user?.id)
@@ -282,7 +287,7 @@ export default function ChatPage() {
                             <Avatar src={myProfile?.avatar_url} name={myProfile?.display_name} size={34} id={session?.user?.id} />
                             <div className="sb-item-info">
                                 <span className="sb-name">{myProfile?.display_name || 'Mi perfil'}</span>
-                                <span className="sb-sub">ID: {myProfile?.short_id || '...'}</span>
+                                <span className="sb-sub" style={{ fontFamily: 'monospace' }}>ID: {myProfile?.short_id || '...'}</span>
                             </div>
                         </div>
                     </div>
@@ -290,14 +295,38 @@ export default function ChatPage() {
                     <div className="sb-divider" />
 
                     <div className="sb-section">
-                        <h4 className="sb-title">Mensajes</h4>
-                        <div className="sb-item" onClick={() => { setReceiverId(null); setActiveTab('chat') }}>
+                        <h4 className="sb-title">Mis Cursos / Espacios</h4>
+                        <div className="sb-item" onClick={() => {
+                            const name = prompt("Nombre del nuevo curso/espacio:")
+                            if (name) createSpace(name)
+                        }}>
                             <div className="sb-icon"><Icon name="plus" size={18} /></div>
-                            <span>Nueva conversación</span>
+                            <span>Crear / Unirse a Curso</span>
+                        </div>
+
+                        {spaces.map(s => (
+                            <div key={s.id} className={`sb-item ${activeSpace?.id === s.id ? 'active' : ''}`} onClick={() => { setActiveSpace(s); setReceiverId(null); setActiveTab('chat') }}>
+                                <div className="sb-icon" style={{ borderRadius: '6px', backgroundColor: 'var(--primary-soft)', color: 'var(--primary)' }}>
+                                    <Icon name="people" size={18} />
+                                </div>
+                                <div className="sb-item-info">
+                                    <span className="sb-name">{s.name}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="sb-divider" />
+
+                    <div className="sb-section">
+                        <h4 className="sb-title">Mensajes Directos</h4>
+                        <div className="sb-item" onClick={() => { setReceiverId(null); setActiveSpace(null); setActiveTab('chat') }}>
+                            <div className="sb-icon"><Icon name="plus" size={18} /></div>
+                            <span>Nuevo mensaje</span>
                         </div>
 
                         {recentChats.map(id => (
-                            <ContactItem key={id} id={id} active={receiverId === id} onClick={() => { setReceiverId(id); setActiveTab('chat'); }} unreadCount={unreadPerChat[id] || 0} />
+                            <ContactItem key={id} id={id} active={receiverId === id && !activeSpace} onClick={() => { setReceiverId(id); setActiveSpace(null); setActiveTab('chat'); }} unreadCount={unreadPerChat[id] || 0} />
                         ))}
                     </div>
 
@@ -376,7 +405,7 @@ export default function ChatPage() {
                     {activeTab === 'chat' && (
                         <>
                             {/* Connect screen */}
-                            {!receiverId && (
+                            {!receiverId && !activeSpace && (
                                 <div className="card-feed fadeIn">
                                     <div className="card-feed-header"><h3>💬 Nueva conversación</h3></div>
                                     <div className="card-feed-body connect-body">
@@ -392,48 +421,81 @@ export default function ChatPage() {
                                 </div>
                             )}
 
-                            {/* Chat window */}
-                            {receiverId && (
-                                <div className="chat-window fadeIn">
-                                    <div className="cw-header">
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-                                            <button className="icon-btn btn-back-mobile" onClick={() => setReceiverId(null)}>
-                                                <Icon name="chevronLeft" size={24} />
-                                            </button>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }} onClick={() => setShowViewProfile(true)} className="pointer">
-                                                <Avatar src={otherProfile?.avatar_url} name={otherProfile?.display_name} size={38} id={receiverId} online />
+                            {/* Chat window or Space Window */}
+                            {(receiverId || activeSpace) && (
+                                <div className={`chat-window fadeIn ${activeSpace ? 'space-layout' : ''}`}>
+
+                                    {/* ----- SPACE HEADER ----- */}
+                                    {activeSpace && (
+                                        <div className="cw-header">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                                                <button className="icon-btn btn-back-mobile" onClick={() => setActiveSpace(null)}>
+                                                    <Icon name="chevronLeft" size={24} />
+                                                </button>
+                                                <div className="sb-icon" style={{ borderRadius: '6px', backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', padding: '8px' }}>
+                                                    <Icon name="people" size={20} />
+                                                </div>
                                                 <div className="cw-header-info">
-                                                    <span className="cw-name">{otherProfile?.display_name || 'Usuario'}</span>
-                                                    <span className="cw-status">
-                                                        {isTyping ? 'escribiendo...' : 'En línea'}
+                                                    <span className="cw-name">{activeSpace.name}</span>
+                                                    <span className="cw-status" style={{ color: 'var(--text-3)' }}>
+                                                        {isTyping ? 'Alguien está escribiendo...' : 'Curso / Grupo de Estudio'}
                                                     </span>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            <button className={`icon-btn ${isSaved ? 'text-primary' : ''}`} onClick={toggleContact} title={isSaved ? 'Quitar contacto' : 'Guardar contacto'}>
-                                                <Icon name={isSaved ? 'check' : 'userPlus'} size={20} />
-                                            </button>
-                                            <div style={{ position: 'relative' }}>
-                                                <button className="icon-btn" onClick={() => setShowMenu(!showMenu)}>
-                                                    <Icon name="dots" size={18} />
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                <button className="btn-main" style={{ padding: '6px 12px', fontSize: '13px' }}>
+                                                    <Icon name="plus" size={14} style={{ marginRight: '4px' }} /> Miembros
                                                 </button>
-                                                {showMenu && (
-                                                    <div className="dropdown-menu fadeIn">
-                                                        <button onClick={handleClear}><Icon name="trash" size={16} /> Vaciar chat</button>
-                                                        <button onClick={handleDeleteChat} className="text-red"><Icon name="x" size={16} /> Eliminar chat</button>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
+
+                                    {/* ----- DM HEADER ----- */}
+                                    {receiverId && !activeSpace && (
+                                        <div className="cw-header">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                                                <button className="icon-btn btn-back-mobile" onClick={() => setReceiverId(null)}>
+                                                    <Icon name="chevronLeft" size={24} />
+                                                </button>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }} onClick={() => setShowViewProfile(true)} className="pointer">
+                                                    <Avatar src={otherProfile?.avatar_url} name={otherProfile?.display_name} size={38} id={receiverId} online />
+                                                    <div className="cw-header-info">
+                                                        <span className="cw-name">{otherProfile?.display_name || 'Usuario'}</span>
+                                                        <span className="cw-status">
+                                                            {isTyping ? 'escribiendo...' : 'En línea'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                <button className={`icon-btn ${isSaved ? 'text-primary' : ''}`} onClick={toggleContact} title={isSaved ? 'Quitar contacto' : 'Guardar contacto'}>
+                                                    <Icon name={isSaved ? 'check' : 'userPlus'} size={20} />
+                                                </button>
+                                                <div style={{ position: 'relative' }}>
+                                                    <button className="icon-btn" onClick={() => setShowMenu(!showMenu)}>
+                                                        <Icon name="dots" size={18} />
+                                                    </button>
+                                                    {showMenu && (
+                                                        <div className="dropdown-menu fadeIn">
+                                                            <button onClick={handleClear}><Icon name="trash" size={16} /> Vaciar chat</button>
+                                                            <button onClick={handleDeleteChat} className="text-red"><Icon name="x" size={16} /> Eliminar chat</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="cw-messages">
                                         {messages.length === 0 && (
                                             <div className="cw-empty">
-                                                <img src="/logo.png" alt="" style={{ width: '64px', height: '64px', opacity: 0.5, marginBottom: '10px' }} />
-                                                <p>Conversación privada con <strong>{otherProfile?.display_name || 'Usuario'}</strong></p>
-                                                <span>Los mensajes son solo entre ustedes dos.</span>
+                                                <Icon name={activeSpace ? "people" : "userPlus"} size={48} style={{ opacity: 0.5, marginBottom: '10px' }} />
+                                                <p>
+                                                    {activeSpace
+                                                        ? `Bienvenido a ${activeSpace.name}`
+                                                        : `Conversación privada con ${otherProfile?.display_name || 'Usuario'}`}
+                                                </p>
+                                                <span>{activeSpace ? 'Envía el primer mensaje para empezar el debate académico.' : 'Los mensajes son solo entre ustedes dos.'}</span>
                                             </div>
                                         )}
                                         {messages.map((m) => {
@@ -528,62 +590,68 @@ export default function ChatPage() {
                     <h4 className="sb-title">Contactos Guardados</h4>
                     {savedContacts.length === 0 && <p className="sub text-sm" style={{ padding: '0 12px' }}>Aún no has guardado contactos.</p>}
                     {savedContacts.map(id => (
-                        <ContactItem key={id} id={id} active={receiverId === id} onClick={() => { setReceiverId(id); setActiveTab('chat'); }} unreadCount={unreadPerChat[id] || 0} />
+                        <ContactItem key={id} id={id} active={receiverId === id && !activeSpace} onClick={() => { setReceiverId(id); setActiveSpace(null); setActiveTab('chat'); }} unreadCount={unreadPerChat[id] || 0} />
                     ))}
                 </aside>
             </div>
 
             {/* MOBILE DRAWER */}
-            {isMenuOpen && (
-                <div className="drawer-overlay" onClick={() => setIsMenuOpen(false)}>
-                    <div className="drawer-content fadeInRight" onClick={e => e.stopPropagation()}>
-                        <div className="drawer-header">
-                            <Avatar src={myProfile?.avatar_url} name={myProfile?.display_name} size={60} id={session?.user?.id} />
-                            <div className="drawer-user-info">
-                                <h3>{myProfile?.display_name || 'Nombre'}</h3>
-                                <span className="sub">ID: {myProfile?.short_id}</span>
+            {
+                isMenuOpen && (
+                    <div className="drawer-overlay" onClick={() => setIsMenuOpen(false)}>
+                        <div className="drawer-content fadeInRight" onClick={e => e.stopPropagation()}>
+                            <div className="drawer-header">
+                                <Avatar src={myProfile?.avatar_url} name={myProfile?.display_name} size={60} id={session?.user?.id} />
+                                <div className="drawer-user-info">
+                                    <h3>{myProfile?.display_name || 'Nombre'}</h3>
+                                    <span className="sub">ID: {myProfile?.short_id}</span>
+                                </div>
+                                <button className="icon-btn" onClick={() => setIsMenuOpen(false)}>
+                                    <Icon name="x" size={20} />
+                                </button>
                             </div>
-                            <button className="icon-btn" onClick={() => setIsMenuOpen(false)}>
-                                <Icon name="x" size={20} />
-                            </button>
-                        </div>
-                        <div className="drawer-body">
-                            <div className="drawer-item" onClick={() => { setShowEditProfile(true); setIsMenuOpen(false); }}>
-                                <Icon name="settings" size={22} />
-                                <span>Configuración de Perfil</span>
+                            <div className="drawer-body">
+                                <div className="drawer-item" onClick={() => { setShowEditProfile(true); setIsMenuOpen(false); }}>
+                                    <Icon name="settings" size={22} />
+                                    <span>Configuración de Perfil</span>
+                                </div>
+                                <div className="drawer-item" onClick={() => { setActiveTab('home'); setIsMenuOpen(false); setReceiverId(null); }}>
+                                    <Icon name="home" size={22} />
+                                    <span>Ir al Inicio</span>
+                                </div>
+                                <div className="drawer-divider" />
+                                <div className="drawer-item text-red" onClick={handleSignOut}>
+                                    <Icon name="logout" size={22} />
+                                    <span>Cerrar sesión</span>
+                                </div>
                             </div>
-                            <div className="drawer-item" onClick={() => { setActiveTab('home'); setIsMenuOpen(false); setReceiverId(null); }}>
-                                <Icon name="home" size={22} />
-                                <span>Ir al Inicio</span>
+                            <div className="drawer-footer">
+                                <p className="hint">Aethel v1.0.0 — Privacidad Total</p>
                             </div>
-                            <div className="drawer-divider" />
-                            <div className="drawer-item text-red" onClick={handleSignOut}>
-                                <Icon name="logout" size={22} />
-                                <span>Cerrar sesión</span>
-                            </div>
-                        </div>
-                        <div className="drawer-footer">
-                            <p className="hint">Aethel v1.0.0 — Privacidad Total</p>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* MODALS */}
-            {showEditProfile && (
-                <ProfileModal
-                    profile={myProfile}
-                    onSave={saveProfile}
-                    onClose={() => setShowEditProfile(false)}
-                />
-            )}
-            {showViewProfile && (
-                <ViewProfileModal
-                    profile={otherProfile}
-                    onClose={() => setShowViewProfile(false)}
-                />
-            )}
-        </div>
+            {
+                showEditProfile && (
+                    <ProfileModal
+                        profile={myProfile}
+                        onSave={saveProfile}
+                        onClose={() => setShowEditProfile(false)}
+                    />
+                )
+            }
+            {
+                showViewProfile && (
+                    <ViewProfileModal
+                        profile={otherProfile}
+                        onClose={() => setShowViewProfile(false)}
+                    />
+                )
+            }
+        </div >
     )
 }
 

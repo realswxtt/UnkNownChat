@@ -9,32 +9,40 @@
    ════════════════════════════════════════════════ */
 
 :root {
-  --bg-root: #18191a;
-  --bg-surface: #242526;
-  --bg-card: #242526;
-  --bg-input: #3a3b3c;
-  --bg-hover: #3a3b3c;
-  --bg-active: #2d88ff22;
+  --bg-root: #0A0A0A;
+  /* Pure black/very dark gray */
+  --bg-surface: #141414;
+  /* Slightly lighter for sidebars/cards */
+  --bg-card: #141414;
+  --bg-input: #1F1F1F;
+  --bg-hover: #2A2A2A;
+  --bg-active: rgba(255, 255, 255, 0.05);
 
-  --text-1: #e4e6eb;
-  --text-2: #b0b3b8;
-  --text-3: #8a8d91;
+  --text-1: #EDEDED;
+  /* Clear white */
+  --text-2: #A0A0A0;
+  /* Soft gray */
+  --text-3: #707070;
+  /* Muted descriptor */
 
-  --primary: #2d88ff;
-  --primary-hover: #1a7aef;
-  --primary-soft: rgba(45, 136, 255, 0.12);
+  --primary: #5E6AD2;
+  /* Sleek indigo/blurple */
+  --primary-hover: #4B55B0;
+  --primary-soft: rgba(94, 106, 210, 0.15);
 
-  --green: #31a24c;
-  --red: #f02849;
-  --red-soft: rgba(240, 40, 73, 0.1);
-  --green-soft: rgba(49, 162, 76, 0.1);
+  --green: #23A559;
+  --red: #D8315B;
+  --red-soft: rgba(216, 49, 91, 0.1);
+  --green-soft: rgba(35, 165, 89, 0.1);
 
-  --border: #393a3b;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --border: #2A2A2A;
+  /* Crisp, thin borders */
+  --radius: 6px;
+  /* Sharper corners for a professional dev look */
+  --radius-lg: 10px;
   --radius-full: 999px;
-  --shadow: 0 2px 12px rgba(0, 0, 0, .4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, .5);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.8);
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
 
   --topnav-h: 56px;
@@ -614,12 +622,11 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: var(--radius);
   cursor: pointer;
-  transition: background .15s;
-  font-size: 14px;
-  font-weight: 500;
+  transition: all 0.2s ease;
+  position: relative;
 }
 
 .sb-item:hover {
@@ -627,7 +634,21 @@ a {
 }
 
 .sb-item.active {
-  background: var(--bg-hover);
+  background: var(--bg-active);
+}
+
+.sb-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  width: 4px;
+  background-color: var(--primary);
+  border-radius: 0 4px 4px 0;
+}
+
+.sb-item.active {
   color: var(--text-1);
 }
 
@@ -828,15 +849,27 @@ a {
    CHAT WINDOW
    ════════════════════════════════════════════════ */
 .chat-window {
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
-  width: 100%;
-  max-width: 680px;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--topnav-h) - 40px);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow);
+  height: calc(100vh - var(--topnav-h) - 40px);
+  position: relative;
+  transition: width 0.3s ease;
+}
+
+/* For Space Layout, we expand the chat window to take up the space of the right sidebar */
+.space-layout {
+  grid-column: span 2;
+}
+
+@media (max-width: 900px) {
+  .space-layout {
+    grid-column: span 1;
+  }
 }
 
 .cw-header {

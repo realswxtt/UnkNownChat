@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase/client'
 
-export function useMessages(userId, receiverId) {
+export function useMessages(userId, receiverId, activeSpace = null) {
     const [messages, setMessages] = useState([])
     const [sending, setSending] = useState(false)
     const [isTyping, setIsTyping] = useState(false)
@@ -9,30 +9,51 @@ export function useMessages(userId, receiverId) {
 
     // Fetch history
     useEffect(() => {
-        if (!userId || !receiverId) return
-        supabase
-            .from('messages')
-            .select('*')
-            .or(`and(sender_id.eq.${userId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${userId})`)
-            .order('created_at', { ascending: true })
+        if (!userId) return
+
+        let query = supabase.from('messages').select('*')
+
+        if (activeSpace) {
+            query = query.eq('space_id', activeSpace.id)
+        } else if (receiverId) {
+            query = query.or(`and(sender_id.eq.${userId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${userId})`)
+                .is('space_id', null)
+        } else {
+            return
+        }
+
+        query.order('created_at', { ascending: true })
             .then(({ data }) => { if (data) setMessages(data) })
-    }, [userId, receiverId])
+    }, [userId, receiverId, activeSpace])
 
     // Realtime subscription
     useEffect(() => {
-        if (!userId || !receiverId) return
+        if (!userId) return
+        if (!activeSpace && !receiverId) return
 
-        setIsTyping(false) // Reset on user switch
+        setIsTyping(false) // Reset on switch
+
+        const channelName = activeSpace
+            ? `rt-space-${activeSpace.id}`
+            : `rt-${userId}-${receiverId}`
 
         const ch = supabase
-            .channel(`rt-${userId}-${receiverId}`)
+            .channel(channelName)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
                 const msg = payload.new
-                if (
-                    (msg.sender_id === userId && msg.receiver_id === receiverId) ||
-                    (msg.sender_id === receiverId && msg.receiver_id === userId)
-                ) {
-                    setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+
+                if (activeSpace) {
+                    if (msg.space_id === activeSpace.id) {
+                        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+                    }
+                } else {
+                    if (
+                        !msg.space_id &&
+                        ((msg.sender_id === userId && msg.receiver_id === receiverId) ||
+                            (msg.sender_id === receiverId && msg.receiver_id === userId))
+                    ) {
+                        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+                    }
                 }
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
@@ -44,7 +65,10 @@ export function useMessages(userId, receiverId) {
                 })
             })
             .on('broadcast', { event: 'typing' }, (payload) => {
-                if (payload.payload.userId === receiverId) {
+                // Determine if typing event is relevant
+                if (activeSpace && payload.payload.spaceId === activeSpace.id && payload.payload.userId !== userId) {
+                    setIsTyping(payload.payload.isTyping)
+                } else if (!activeSpace && payload.payload.userId === receiverId) {
                     setIsTyping(payload.payload.isTyping)
                 }
             })
@@ -56,7 +80,7 @@ export function useMessages(userId, receiverId) {
             channelRef.current = null
             ch.unsubscribe()
         }
-    }, [userId, receiverId])
+    }, [userId, receiverId, activeSpace])
 
     // Typing Event
     const sendTyping = (typing) => {
@@ -64,18 +88,21 @@ export function useMessages(userId, receiverId) {
             channelRef.current.send({
                 type: 'broadcast',
                 event: 'typing',
-                payload: { userId, isTyping: typing }
+                payload: { userId, isTyping: typing, spaceId: activeSpace?.id }
             })
         }
     }
 
     // Send message
     const sendMessage = async (content, imageUrl = null, replyTo = null, audioUrl = null) => {
-        if ((!content.trim() && !imageUrl && !audioUrl) || !receiverId || sending) return false
+        if ((!content.trim() && !imageUrl && !audioUrl) || sending) return false
+        if (!activeSpace && !receiverId) return false
+
         setSending(true)
         const { error } = await supabase.from('messages').insert({
             sender_id: userId,
-            receiver_id: receiverId,
+            receiver_id: activeSpace ? null : receiverId,
+            space_id: activeSpace ? activeSpace.id : null,
             content: content.trim(),
             image_url: imageUrl,
             reply_to: replyTo,
