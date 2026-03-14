@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase/client'
 
 export function useMessages(userId, receiverId) {
     const [messages, setMessages] = useState([])
     const [sending, setSending] = useState(false)
+    const [isTyping, setIsTyping] = useState(false)
+    const channelRef = useRef(null)
 
     // Fetch history
     useEffect(() => {
@@ -19,6 +21,9 @@ export function useMessages(userId, receiverId) {
     // Realtime subscription
     useEffect(() => {
         if (!userId || !receiverId) return
+
+        setIsTyping(false) // Reset on user switch
+
         const ch = supabase
             .channel(`rt-${userId}-${receiverId}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
@@ -30,20 +35,52 @@ export function useMessages(userId, receiverId) {
                     setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
                 }
             })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+                const msg = payload.new
+                if (
+                    (msg.sender_id === userId && msg.receiver_id === receiverId) ||
+                    (msg.sender_id === receiverId && msg.receiver_id === userId)
+                ) {
+                    setMessages((prev) => prev.map((m) => m.id === msg.id ? msg : m))
+                }
+            })
+            .on('broadcast', { event: 'typing' }, (payload) => {
+                if (payload.payload.userId === receiverId) {
+                    setIsTyping(payload.payload.isTyping)
+                }
+            })
             .subscribe()
-        return () => ch.unsubscribe()
+
+        channelRef.current = ch
+
+        return () => {
+            channelRef.current = null
+            ch.unsubscribe()
+        }
     }, [userId, receiverId])
 
+    // Typing Event
+    const sendTyping = (typing) => {
+        if (channelRef.current) {
+            channelRef.current.send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: { userId, isTyping: typing }
+            })
+        }
+    }
+
     // Send message
-    const sendMessage = async (content, imageUrl = null, replyTo = null) => {
-        if ((!content.trim() && !imageUrl) || !receiverId || sending) return false
+    const sendMessage = async (content, imageUrl = null, replyTo = null, audioUrl = null) => {
+        if ((!content.trim() && !imageUrl && !audioUrl) || !receiverId || sending) return false
         setSending(true)
         const { error } = await supabase.from('messages').insert({
             sender_id: userId,
             receiver_id: receiverId,
             content: content.trim(),
             image_url: imageUrl,
-            reply_to: replyTo
+            reply_to: replyTo,
+            audio_url: audioUrl
         })
         setSending(false)
         return !error
@@ -72,6 +109,28 @@ export function useMessages(userId, receiverId) {
         return !error
     }
 
+    // Mark as read
+    const markAsRead = async (messageIds) => {
+        if (!messageIds || messageIds.length === 0) return
+        const now = new Date().toISOString()
+        await supabase
+            .from('messages')
+            .update({ read_at: now })
+            .in('id', messageIds)
+    }
+
+    // React to message
+    const reactMessage = async (messageId, reaction, currentReactions = {}) => {
+        let nextReactions = { ...currentReactions }
+        // Toggle if same reaction
+        if (nextReactions[userId] === reaction) {
+            delete nextReactions[userId]
+        } else {
+            nextReactions[userId] = reaction
+        }
+        await supabase.from('messages').update({ reactions: nextReactions }).eq('id', messageId)
+    }
+
     // Upload image to storage
     const uploadImage = async (file) => {
         if (!file) return null
@@ -89,5 +148,5 @@ export function useMessages(userId, receiverId) {
         return data.publicUrl
     }
 
-    return { messages, sendMessage, deleteMessage, clearChat, uploadImage, sending }
+    return { messages, sendMessage, deleteMessage, clearChat, uploadImage, sending, isTyping, sendTyping, markAsRead, reactMessage }
 }

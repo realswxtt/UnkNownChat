@@ -23,6 +23,11 @@ export default function ChatPage() {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [activeTab, setActiveTab] = useState('chat')
     const [replyingTo, setReplyingTo] = useState(null)
+    const [isRecording, setIsRecording] = useState(false)
+    const [recordTime, setRecordTime] = useState(0)
+    const mediaRecorderRef = useRef(null)
+    const audioChunksRef = useRef([])
+    const timerRef = useRef(null)
     const endRef = useRef(null)
     const inputRef = useRef(null)
     const fileRef = useRef(null)
@@ -41,7 +46,18 @@ export default function ChatPage() {
     const { recentChats, savedContacts, saveContact, removeContact } = useContacts(session?.user?.id)
 
     // Messages
-    const { messages, sendMessage, deleteMessage, clearChat, uploadImage, sending } = useMessages(session?.user?.id, receiverId)
+    const { messages, sendMessage, deleteMessage, clearChat, uploadImage, sending, isTyping, sendTyping, markAsRead, reactMessage } = useMessages(session?.user?.id, receiverId)
+
+    // Mark as read when messages load and receiver is set
+    useEffect(() => {
+        if (!session?.user?.id || !receiverId) return
+        const unreadIds = messages
+            .filter(m => m.receiver_id === session?.user?.id && m.sender_id === receiverId && !m.read_at)
+            .map(m => m.id)
+        if (unreadIds.length > 0) {
+            markAsRead(unreadIds)
+        }
+    }, [messages, session?.user?.id, receiverId, markAsRead])
 
     // Auto-scroll
     const scroll = () => endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -66,6 +82,67 @@ export default function ChatPage() {
         setImagePreview(null)
         if (fileRef.current) fileRef.current.value = ''
     }
+
+    // Voice Notes Logic
+    const toggleRecording = async () => {
+        if (isRecording) {
+            // Stop recording
+            if (mediaRecorderRef.current) {
+                mediaRecorderRef.current.stop()
+            }
+            clearInterval(timerRef.current)
+            setIsRecording(false)
+            setRecordTime(0)
+        } else {
+            // Start recording
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                const mediaRecorder = new MediaRecorder(stream)
+                mediaRecorderRef.current = mediaRecorder
+                audioChunksRef.current = []
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunksRef.current.push(e.data)
+                }
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+                    // Send audio message directly
+                    const audioFile = new File([audioBlob], 'audio.webm', { type: 'audio/webm' })
+                    const audioUrl = await uploadImage(audioFile)
+                    if (audioUrl) {
+                        await sendMessage('', null, replyingTo?.id, audioUrl)
+                        setReplyingTo(null)
+                    }
+                    // Release microphone
+                    stream.getTracks().forEach(track => track.stop())
+                }
+
+                mediaRecorder.start()
+                setIsRecording(true)
+                setRecordTime(0)
+                timerRef.current = setInterval(() => {
+                    setRecordTime(prev => prev + 1)
+                }, 1000)
+            } catch (err) {
+                console.error("No se pudo acceder al micrófono:", err)
+                alert("Debes permitir el acceso al micrófono para enviar notas de voz.")
+            }
+        }
+    }
+
+    // Typing Event handling
+    useEffect(() => {
+        let typingTimeout
+        if (newMsg.trim().length > 0) {
+            sendTyping(true)
+            typingTimeout = setTimeout(() => sendTyping(false), 2000)
+        } else {
+            sendTyping(false)
+        }
+        return () => clearTimeout(typingTimeout)
+    }, [newMsg, sendTyping])
+
 
     // Send handler
     const handleSend = async (e) => {
@@ -322,7 +399,9 @@ export default function ChatPage() {
                                                 <Avatar src={otherProfile?.avatar_url} name={otherProfile?.display_name} size={38} id={receiverId} online />
                                                 <div className="cw-header-info">
                                                     <span className="cw-name">{otherProfile?.display_name || 'Usuario'}</span>
-                                                    <span className="cw-status">En línea</span>
+                                                    <span className="cw-status">
+                                                        {isTyping ? 'escribiendo...' : 'En línea'}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -362,7 +441,7 @@ export default function ChatPage() {
                                                     otherProfile={otherProfile} receiverId={receiverId}
                                                     session={session} formatTime={formatTime}
                                                     deleteMessage={deleteMessage} messages={messages}
-                                                    scrollToReply={scrollToReply} onReply={setReplyingTo} />
+                                                    scrollToReply={scrollToReply} onReply={setReplyingTo} reactMessage={reactMessage} />
                                             )
                                         })}
                                         <div ref={endRef} />
@@ -389,19 +468,34 @@ export default function ChatPage() {
 
                                     <form onSubmit={handleSend} className="cw-input">
                                         <input type="file" ref={fileRef} hidden accept="image/*" onChange={onFileChange} />
-                                        <button type="button" className="icon-btn-plain" onClick={() => fileRef.current?.click()}>
+                                        <button type="button" className="icon-btn-plain" onClick={() => fileRef.current?.click()} style={{ display: isRecording ? 'none' : 'block' }}>
                                             <Icon name="image" size={22} />
                                         </button>
-                                        <input
-                                            ref={inputRef}
-                                            value={newMsg}
-                                            onChange={(e) => setNewMsg(e.target.value)}
-                                            placeholder={imageFile ? "Añadir comentario..." : `Escribe a ${otherProfile?.display_name || 'Usuario'}...`}
-                                            autoFocus
-                                        />
-                                        <button type="submit" disabled={(!newMsg.trim() && !imageFile) || sending} className="send-circle">
-                                            {sending ? <div className="spinner-xs" /> : <Icon name="send" size={18} />}
-                                        </button>
+
+                                        {!isRecording ? (
+                                            <input
+                                                ref={inputRef}
+                                                value={newMsg}
+                                                onChange={(e) => setNewMsg(e.target.value)}
+                                                placeholder={imageFile ? "Añadir comentario..." : `Escribe a ${otherProfile?.display_name || 'Usuario'}...`}
+                                                autoFocus
+                                            />
+                                        ) : (
+                                            <div className="recording-bar fadeIn">
+                                                <div className="recording-pulse"></div>
+                                                <span className="recording-time">Grabando... {Math.floor(recordTime / 60)}:{(recordTime % 60).toString().padStart(2, '0')}</span>
+                                            </div>
+                                        )}
+
+                                        {!newMsg.trim() && !imageFile ? (
+                                            <button type="button" onClick={toggleRecording} className={`send-circle ${isRecording ? 'recording' : ''}`} title="Nota de voz">
+                                                <Icon name={isRecording ? 'x' : 'mic'} size={18} />
+                                            </button>
+                                        ) : (
+                                            <button type="submit" disabled={sending} className="send-circle">
+                                                {sending ? <div className="spinner-xs" /> : <Icon name="send" size={18} />}
+                                            </button>
+                                        )}
                                     </form>
                                 </div>
                             )}
@@ -501,9 +595,17 @@ function ContactItem({ id, onClick, active }) {
     )
 }
 
-function MessageItem({ m, mine, dl, showD, otherProfile, receiverId, session, formatTime, deleteMessage, messages, scrollToReply, onReply }) {
+function MessageItem({ m, mine, dl, showD, otherProfile, receiverId, session, formatTime, deleteMessage, messages, scrollToReply, onReply, reactMessage }) {
     const [swipeOffset, setSwipeOffset] = useState(0)
+    const [showReactions, setShowReactions] = useState(false)
     const touchStartRef = useRef(null)
+
+    const handleReaction = (emoji) => {
+        reactMessage(m.id, emoji, m.reactions || {})
+        setShowReactions(false)
+    }
+
+    const EMOJIS = ['❤️', '👍', '😂', '😢', '🔥', '👀']
 
     const onTouchStart = (e) => {
         touchStartRef.current = e.touches[0].clientX
@@ -541,9 +643,10 @@ function MessageItem({ m, mine, dl, showD, otherProfile, receiverId, session, fo
                 <div className={`msg ${mine ? 'msg-out' : 'msg-in'}`}
                     style={{ transform: `translateX(${swipeOffset}px)`, transition: touchStartRef.current !== null ? 'none' : 'transform 0.2s' }}
                     onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+                    onDoubleClick={() => setShowReactions(!showReactions)}
                 >
                     {!mine && <Avatar src={otherProfile?.avatar_url} name={otherProfile?.display_name} size={30} id={receiverId} />}
-                    <div className={`bubble ${mine ? 'b-out' : 'b-in'}`}>
+                    <div className={`bubble ${mine ? 'b-out' : 'b-in'} ${showReactions ? 'active' : ''}`}>
                         {repliedMsg && (
                             <div className="rep-bubble pointer" onClick={() => scrollToReply(repliedMsg.id)}>
                                 <span className="rep-name">{repliedMsg.sender_id === session?.user?.id ? 'Tú' : (otherProfile?.display_name || 'Usuario')}</span>
@@ -551,9 +654,39 @@ function MessageItem({ m, mine, dl, showD, otherProfile, receiverId, session, fo
                             </div>
                         )}
                         {m.image_url && <img src={m.image_url} alt="Shared" className="msg-img" />}
+                        {m.audio_url && (
+                            <div className="audio-player">
+                                <audio controls src={m.audio_url} />
+                            </div>
+                        )}
                         {m.content && <p>{m.content}</p>}
-                        <time>{formatTime(m.created_at)}</time>
+                        <div className="msg-meta">
+                            <time>{formatTime(m.created_at)}</time>
+                            {mine && (
+                                <span className={`read-receipt ${m.read_at ? 'read' : 'sent'}`}>
+                                    {m.read_at ? '✔✔' : '✔'}
+                                </span>
+                            )}
+                        </div>
                     </div>
+
+                    {showReactions && (
+                        <div className="reaction-picker fadeIn">
+                            {EMOJIS.map(emoji => (
+                                <span key={emoji} onClick={() => handleReaction(emoji)} className="emoji-btn">{emoji}</span>
+                            ))}
+                        </div>
+                    )}
+
+                    {m.reactions && Object.keys(m.reactions).length > 0 && (
+                        <div className="reaction-badges" onClick={() => setShowReactions(!showReactions)}>
+                            {Array.from(new Set(Object.values(m.reactions))).map(r => (
+                                <span key={r}>{r}</span>
+                            ))}
+                            <span className="reaction-count">{Object.keys(m.reactions).length > 1 ? Object.keys(m.reactions).length : ''}</span>
+                        </div>
+                    )}
+
                     {mine && (
                         <div className="msg-actions">
                             <button className="msg-action-btn" onClick={() => onReply(m)} title="Responder">
