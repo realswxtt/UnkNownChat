@@ -872,6 +872,7 @@ a {
 .cw-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
@@ -931,8 +932,8 @@ a {
 
 /* Messages */
 .msg-container {
-  overflow-x: hidden;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .msg-wrapper {
