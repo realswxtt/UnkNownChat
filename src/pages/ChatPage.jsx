@@ -22,6 +22,7 @@ export default function ChatPage() {
     const [showMenu, setShowMenu] = useState(false)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [activeTab, setActiveTab] = useState('chat')
+    const [replyingTo, setReplyingTo] = useState(null)
     const endRef = useRef(null)
     const inputRef = useRef(null)
     const fileRef = useRef(null)
@@ -76,10 +77,20 @@ export default function ChatPage() {
             imgUrl = await uploadImage(imageFile)
         }
 
-        if (await sendMessage(newMsg, imgUrl)) {
+        if (await sendMessage(newMsg, imgUrl, replyingTo?.id)) {
             setNewMsg('')
             cancelImage()
+            setReplyingTo(null)
             inputRef.current?.focus()
+        }
+    }
+
+    const scrollToReply = (id) => {
+        const el = document.getElementById(`msg-${id}`)
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            el.classList.add('highlight-msg')
+            setTimeout(() => el.classList.remove('highlight-msg'), 1000)
         }
     }
 
@@ -347,22 +358,11 @@ export default function ChatPage() {
                                             let showD = false
                                             if (dl !== lastD) { showD = true; lastD = dl }
                                             return (
-                                                <div key={m.id} className="msg-container">
-                                                    {showD && <div className="date-sep"><span>{dl}</span></div>}
-                                                    <div className={`msg ${mine ? 'msg-out' : 'msg-in'}`}>
-                                                        {!mine && <Avatar src={otherProfile?.avatar_url} name={otherProfile?.display_name} size={30} id={receiverId} />}
-                                                        <div className={`bubble ${mine ? 'b-out' : 'b-in'}`}>
-                                                            {m.image_url && <img src={m.image_url} alt="Shared" className="msg-img" />}
-                                                            {m.content && <p>{m.content}</p>}
-                                                            <time>{formatTime(m.created_at)}</time>
-                                                        </div>
-                                                        {mine && (
-                                                            <button className="msg-action-del" onClick={() => deleteMessage(m.id)}>
-                                                                <Icon name="trash" size={14} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
+                                                <MessageItem key={m.id} m={m} mine={mine} dl={dl} showD={showD}
+                                                    otherProfile={otherProfile} receiverId={receiverId}
+                                                    session={session} formatTime={formatTime}
+                                                    deleteMessage={deleteMessage} messages={messages}
+                                                    scrollToReply={scrollToReply} onReply={setReplyingTo} />
                                             )
                                         })}
                                         <div ref={endRef} />
@@ -373,6 +373,17 @@ export default function ChatPage() {
                                         <div className="img-preview-bar fadeIn">
                                             <img src={imagePreview} alt="Preview" />
                                             <button onClick={cancelImage} className="preview-close"><Icon name="x" size={14} /></button>
+                                        </div>
+                                    )}
+
+                                    {/* Replying To Banner */}
+                                    {replyingTo && (
+                                        <div className="reply-banner fadeIn">
+                                            <div className="reply-banner-content">
+                                                <span className="rep-name">{replyingTo.sender_id === session?.user?.id ? 'Tú' : (otherProfile?.display_name || 'Usuario')}</span>
+                                                <p>{replyingTo.content || (replyingTo.image_url ? '📷 Foto' : 'Mensaje')}</p>
+                                            </div>
+                                            <button onClick={() => setReplyingTo(null)} className="icon-btn-plain"><Icon name="x" size={16} /></button>
                                         </div>
                                     )}
 
@@ -485,6 +496,82 @@ function ContactItem({ id, onClick, active }) {
             <div className="sb-item-info">
                 <span className="sb-name">{profile?.display_name || 'Usuario'}</span>
                 <span className="sb-status-dot online" />
+            </div>
+        </div>
+    )
+}
+
+function MessageItem({ m, mine, dl, showD, otherProfile, receiverId, session, formatTime, deleteMessage, messages, scrollToReply, onReply }) {
+    const [swipeOffset, setSwipeOffset] = useState(0)
+    const touchStartRef = useRef(null)
+
+    const onTouchStart = (e) => {
+        touchStartRef.current = e.touches[0].clientX
+    }
+
+    const onTouchMove = (e) => {
+        if (touchStartRef.current === null) return
+        const x = e.touches[0].clientX
+        const diff = x - touchStartRef.current
+
+        // Swipe right
+        if (diff > 0 && diff < 80) {
+            setSwipeOffset(diff)
+        }
+    }
+
+    const onTouchEnd = () => {
+        if (swipeOffset > 50) {
+            onReply(m)
+            if (window.navigator?.vibrate) window.navigator.vibrate(50)
+        }
+        setSwipeOffset(0)
+        touchStartRef.current = null
+    }
+
+    const repliedMsg = m.reply_to ? messages.find(msg => msg.id === m.reply_to) : null
+
+    return (
+        <div id={`msg-${m.id}`} className="msg-container">
+            {showD && <div className="date-sep"><span>{dl}</span></div>}
+            <div className={`msg-wrapper ${mine ? 'mw-out' : 'mw-in'}`}>
+                <div className="swipe-reply-icon" style={{ opacity: swipeOffset / 50, transform: `scale(${Math.min(swipeOffset / 50, 1)})` }}>
+                    <Icon name="reply" size={16} />
+                </div>
+                <div className={`msg ${mine ? 'msg-out' : 'msg-in'}`}
+                    style={{ transform: `translateX(${swipeOffset}px)`, transition: touchStartRef.current !== null ? 'none' : 'transform 0.2s' }}
+                    onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+                >
+                    {!mine && <Avatar src={otherProfile?.avatar_url} name={otherProfile?.display_name} size={30} id={receiverId} />}
+                    <div className={`bubble ${mine ? 'b-out' : 'b-in'}`}>
+                        {repliedMsg && (
+                            <div className="rep-bubble pointer" onClick={() => scrollToReply(repliedMsg.id)}>
+                                <span className="rep-name">{repliedMsg.sender_id === session?.user?.id ? 'Tú' : (otherProfile?.display_name || 'Usuario')}</span>
+                                <p>{repliedMsg.content || (repliedMsg.image_url ? '📷 Foto' : 'Mensaje')}</p>
+                            </div>
+                        )}
+                        {m.image_url && <img src={m.image_url} alt="Shared" className="msg-img" />}
+                        {m.content && <p>{m.content}</p>}
+                        <time>{formatTime(m.created_at)}</time>
+                    </div>
+                    {mine && (
+                        <div className="msg-actions">
+                            <button className="msg-action-btn" onClick={() => onReply(m)} title="Responder">
+                                <Icon name="reply" size={14} />
+                            </button>
+                            <button className="msg-action-btn text-red" onClick={() => deleteMessage(m.id)} title="Eliminar">
+                                <Icon name="trash" size={14} />
+                            </button>
+                        </div>
+                    )}
+                    {!mine && (
+                        <div className="msg-actions">
+                            <button className="msg-action-btn" onClick={() => onReply(m)} title="Responder">
+                                <Icon name="reply" size={14} />
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     )

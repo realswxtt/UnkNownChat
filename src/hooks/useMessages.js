@@ -35,14 +35,15 @@ export function useMessages(userId, receiverId) {
     }, [userId, receiverId])
 
     // Send message
-    const sendMessage = async (content, imageUrl = null) => {
+    const sendMessage = async (content, imageUrl = null, replyTo = null) => {
         if ((!content.trim() && !imageUrl) || !receiverId || sending) return false
         setSending(true)
         const { error } = await supabase.from('messages').insert({
             sender_id: userId,
             receiver_id: receiverId,
             content: content.trim(),
-            image_url: imageUrl
+            image_url: imageUrl,
+            reply_to: replyTo
         })
         setSending(false)
         return !error
