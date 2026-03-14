@@ -41,11 +41,9 @@ export function useUnreadCount(userId) {
                     fetchUnread()
                 }
             })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `receiver_id=eq.${userId}` }, (payload) => {
-                const msg = payload.new
-                if (msg.read_at) {
-                    fetchUnread()
-                }
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+                // Remove receiver_id filter because Supabase doesn't send unchanged columns in payload.new
+                fetchUnread()
             })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages', filter: `receiver_id=eq.${userId}` }, () => {
                 fetchUnread()

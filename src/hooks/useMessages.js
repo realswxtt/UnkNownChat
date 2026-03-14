@@ -112,10 +112,11 @@ export function useMessages(userId, receiverId) {
     const markAsRead = async (messageIds) => {
         if (!messageIds || messageIds.length === 0) return
         const now = new Date().toISOString()
-        await supabase
+        const { error } = await supabase
             .from('messages')
             .update({ read_at: now })
             .in('id', messageIds)
+        if (error) console.error("Error marking as read (posible bloqueo RLS):", error)
     }
 
     // React to message
