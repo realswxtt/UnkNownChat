@@ -11,7 +11,7 @@ export default function ProfileModal({ profile, onSave, onClose }) {
     const pickFile = (e) => {
         const f = e.target.files?.[0]
         if (!f) return
-        if (f.size > 500000) return alert('Máximo 500KB')
+        if (f.size > 5242880) return alert('Máximo 5MB') // 5MB limit
         const r = new FileReader()
         r.onloadend = () => setAvatar(r.result)
         r.readAsDataURL(f)
